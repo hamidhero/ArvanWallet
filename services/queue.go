@@ -19,13 +19,17 @@ type QueueService struct {
 	Db     *gorm.DB
 }
 
+//ReceiveVoucherRegister is consumer for voucher service
 func (service QueueService) ReceiveVoucherRegister(routeKey string) {
+
+	//create a rabbitMQ channel
 	ch, e := service.Rabbit.Channel()
 	if e != nil {
 		return
 	}
 	defer ch.Close()
 
+	//declare an exchange for the same topic in voucher service
 	e = ch.ExchangeDeclare(
 		"vouchers_topic", // name
 		"topic",          // type
@@ -51,6 +55,7 @@ func (service QueueService) ReceiveVoucherRegister(routeKey string) {
 		return
 	}
 
+	//bind queue due to even or odd routing key
 	e = ch.QueueBind(
 		q.Name,           // queue name
 		"*."+routeKey,    // routing key
@@ -61,6 +66,7 @@ func (service QueueService) ReceiveVoucherRegister(routeKey string) {
 		return
 	}
 
+	//get data from queue
 	msgs, e := ch.Consume(
 		q.Name, // queue
 		"",     // consumer
@@ -76,6 +82,7 @@ func (service QueueService) ReceiveVoucherRegister(routeKey string) {
 
 	var forever chan struct{}
 
+	//process the message fetched from queue
 	go func() {
 		for d := range msgs {
 			log.Printf(" [x] %s", d.Body)
@@ -95,6 +102,7 @@ func (service QueueService) ReceiveVoucherRegister(routeKey string) {
 					Redis:     service.Redis,
 					Ctx:       service.Ctx,
 				}
+				//call AddTransaction service to update user status
 				if e := s.AddTransaction(req); e == nil {
 					d.Ack(false)
 				}

@@ -9,6 +9,7 @@ import (
 	"strconv"
 )
 
+//GetUserBalance give user wallet balance
 func GetUserBalance(c *gin.Context) {
 	output := utils.NewOutput()
 
@@ -39,6 +40,7 @@ func GetUserBalance(c *gin.Context) {
 	return
 }
 
+//GetUserTransactions gives a report of user transactions
 func GetUserTransactions(c *gin.Context) {
 	output := utils.NewOutput()
 

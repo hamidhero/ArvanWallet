@@ -17,7 +17,9 @@ type UserService struct {
 	Ctx       context.Context
 }
 
+//GetBalance fetch user wallet balance
 func (service UserService) GetBalance(userId int64) (*int64, error) {
+	//check from redis
 	res, _ := service.Redis.Get(service.Ctx, strconv.FormatInt(userId, 10)).Result()
 	if len(res) > 0 {
 		balance, e := strconv.ParseInt(res, 10, 64)
@@ -26,6 +28,7 @@ func (service UserService) GetBalance(userId int64) (*int64, error) {
 		}
 	}
 
+	//if redis fails, tries db
 	var user models.Users
 	if e := service.ServiceDB.Find(&user, userId).Error; e != nil {
 		return nil, e
@@ -36,6 +39,7 @@ func (service UserService) GetBalance(userId int64) (*int64, error) {
 	return nil, errors.New("UserNotFound")
 }
 
+//GetUserTransactions give user transactions report
 func (service UserService) GetUserTransactions(userId int64) (*[]models.UserTransactions, error) {
 	var transactions []models.UserTransactions
 	if e := service.ServiceDB.Order("id desc").
@@ -50,12 +54,15 @@ func (service UserService) GetUserTransactions(userId int64) (*[]models.UserTran
 	return &transactions, nil
 }
 
+//AddTransaction creates a user -if not exists, then add new transaction for the user and updates balance
 func (service UserService) AddTransaction(input requests.AddTransactionRequest) error {
+	//set balance to redis
 	service.Redis.Set(service.Ctx, strconv.FormatInt(input.Mobile, 10),
 		input.Amount, time.Hour*2)
 
 	trx := service.ServiceDB.Begin()
 
+	//check if user exists and creates one if not
 	var user models.Users
 	if e := trx.Find(&user, input.Mobile).Error; e != nil {
 		trx.Rollback()
@@ -80,6 +87,7 @@ func (service UserService) AddTransaction(input requests.AddTransactionRequest) 
 		}
 	}
 
+	//add a new transaction
 	transaction := models.UserTransactions{
 		UserId:     input.Mobile,
 		Amount:     input.Amount,
